@@ -60,6 +60,7 @@ class CAAnimator : public emp::web::Animate {
             cells[numColBoxes/2][numRowBoxes/2] = 1.0;
         }
 
+        // Creates buttons
         const std::function<void()> MakeGrayscale = [this]() {isGrayscale = true; isMulticolor = false;};
         const std::function<void()> MakeMulticolor = [this]() {isGrayscale = false; isMulticolor = true;};
         const std::function<void()> MakeRed = [this]() {isGrayscale = false; isMulticolor = false; hue = 0;};
@@ -69,6 +70,7 @@ class CAAnimator : public emp::web::Animate {
         const std::function<void()> MakePurple = [this]() {isGrayscale = false; isMulticolor = false; hue = 270;};
         const std::function<void()> MakePink = [this]() {isGrayscale = false; isMulticolor = false; hue = 300;};
 
+        // Styles buttons
         void StyleButton(std::string buttonName, emp::web::Button button) {
             button.SetFontSize(12).SetCSS("margin", "4px 2px").SetCSS("border-radius", "8px").SetCSS("padding", "10px 10px");
             if (buttonName == "Red") {button.SetBackground("#ff0000").SetBorder("#ff0000").SetColor("white");}
