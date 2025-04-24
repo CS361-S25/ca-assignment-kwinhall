@@ -1,150 +1,212 @@
-/*
-Kendra Winhall 
-Cellular Automata Assignment, CS 361
-Adapted from starter code from Anya Vostinar
+/**
+ * Kendra Winhall
+ * Cellular Automata Assignment, CS 361
+ * Adapted from starter code from Anya Vostinar
+ * 
+ * Implements a continuous cellular automaton on a toroidal grid, with multiple color options for users to choose from.
+ * Run with ./compile-run.sh and view web interface at http://localhost:8000/ (Chrome or Safari recommended).
+ */
 
-This program implements a continuous cellular automaton on a toroidal grid, with multiple color options for users to choose from.
-*/
 
 #include "emp/web/Animate.hpp"
 #include "emp/web/Button.hpp"
 #include "emp/web/web.hpp"
+#include <string>
+
 
 emp::web::Document doc{"target"};
 
+
+/**
+ * Manages the animation of a continuous cellular automaton.
+ */
 class CAAnimator : public emp::web::Animate {
 
     // sets cell size and grid dimensions
-    const int cellLength = 4; // cell length in pixels
-    const int numRowBoxes = 130; 
-    const int numColBoxes = 130; 
+    const int cellLength = 3; // cell length in pixels
+    const int numRowBoxes = 170; 
+    const int numColBoxes = 170; 
     const double gridHeight = numRowBoxes * cellLength; 
     const double gridWidth = numColBoxes * cellLength; 
     emp::web::Canvas canvas{gridWidth, gridHeight, "canvas"};
 
-    // sets cell color flags and hue, which the user can change with buttons on the web interface
-    bool isGrayscale = true; //default
-    bool isMulticolor = false;
+    // determines colors of cellular automaton, which the user changes with buttons on the web interface
+    bool isGrayscale = true; // default is grayscale
+    bool isRedToPurple = false;
+    bool isRedToYellow = false;
+    bool isPurpleToCyan = false;
     int hue = 0;
 
-    // creates vectors to hold current and future cell states, ranging from 0.0 (white) to 1.0 (full color)
+    // these store the cell states in the current frame and the future frame, ranging from 0.0 ("dead") to 1.0 ("alive")
     std::vector<std::vector<double>> cells;
-    std::vector<std::vector<double>> futureCells;  
+    std::vector<std::vector<double>> futureCells;
 
     public:
 
+        /**
+         * Creates web interface and initializes cell values.
+         */
         CAAnimator() {
-            doc << canvas;
+            // adds canvas and buttons to web interface
+            doc << "<div style \"display: flex\">";
+            doc << "<div>" << canvas.SetCSS("margin", "8px").SetCSS("float", "left") << "</div>";
+            MakeButtons();
+            doc << "</div>";
 
-            // creates all buttons
-            std::vector<emp::web::Button> buttons;
-            buttons.push_back(GetToggleButton("Toggle"));
-            buttons.push_back(GetStepButton("Step"));
-            buttons.push_back(emp::web::Button(MakeGrayscale, "Grayscale"));
-            buttons.push_back(emp::web::Button(MakeMulticolor, "Multicolor"));
-            buttons.push_back(emp::web::Button(MakeRed, "Red"));
-            buttons.push_back(emp::web::Button(MakeOrange, "Orange"));
-            buttons.push_back(emp::web::Button(MakeGreen, "Green"));
-            buttons.push_back(emp::web::Button(MakeBlue, "Blue"));
-            buttons.push_back(emp::web::Button(MakePurple, "Purple"));
-            buttons.push_back(emp::web::Button(MakePink, "Pink"));
-
-            // styles all buttons and puts them into the document
-            for (emp::web::Button button : buttons) {
-                StyleButton(button.GetLabel(), button);
-                doc << button;
-            }
-
-            // sets all cells to white (0.0) to start, except the center cell has full color (1.0)
+            // sets all cells to "dead" (0.0) to start, except the center cell is fully "alive" (1.0)
             cells.resize(numColBoxes, std::vector<double>(numRowBoxes, 0.0));
             futureCells.resize(numColBoxes, std::vector<double>(numRowBoxes, 0.0));
             cells[numColBoxes/2][numRowBoxes/2] = 1.0;
+            futureCells[numColBoxes/2][numRowBoxes/2] = 1.0;
         }
 
 
-        // for each color button, sets grayscale and multicolor flags, sets hue if necessary, and updates cells
-        const std::function<void()> MakeGrayscale = [this]() {isGrayscale = true; isMulticolor = false; UpdateCell(false);};
-        const std::function<void()> MakeMulticolor = [this]() {isGrayscale = false; isMulticolor = true; UpdateCell(false);};
-        const std::function<void()> MakeRed = [this]() {isGrayscale = false; isMulticolor = false; hue = 0; UpdateCell(false);};
-        const std::function<void()> MakeOrange = [this]() {isGrayscale = false; isMulticolor = false; hue = 30; UpdateCell(false);};
-        const std::function<void()> MakeGreen = [this]() {isGrayscale = false; isMulticolor = false; hue = 120; UpdateCell(false);};
-        const std::function<void()> MakeBlue = [this]() {isGrayscale = false; isMulticolor = false; hue = 240; UpdateCell(false);};
-        const std::function<void()> MakePurple = [this]() {isGrayscale = false; isMulticolor = false; hue = 270; UpdateCell(false);};
-        const std::function<void()> MakePink = [this]() {isGrayscale = false; isMulticolor = false; hue = 300; UpdateCell(false);};
+        /**
+         * Creates toggle, step, and cellular automaton color buttons for the web interface.
+         */
+        void MakeButtons() {
+            std::vector<emp::web::Button> buttons;
+            buttons.push_back(GetToggleButton("Toggle"));
+            buttons.push_back(GetStepButton("Step"));
 
+            // for each color button, specifies flags and hue and re-draws cellular automaton with the new color
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = true; isRedToPurple = false; isRedToYellow = false; isPurpleToCyan = false; UpdateCA(false);}, "Grayscale"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = true; isRedToYellow = false; isPurpleToCyan = false; UpdateCA(false);}, "Red to Purple"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = false; isRedToYellow = true; isPurpleToCyan = false; UpdateCA(false);}, "Red to Yellow"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = false; isRedToYellow = false; isPurpleToCyan = true; UpdateCA(false);}, "Purple to Cyan"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = false; isRedToYellow = false; isPurpleToCyan = false; hue = 0; UpdateCA(false);}, "Red"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = false; isRedToYellow = false; isPurpleToCyan = false; hue = 30; UpdateCA(false);}, "Orange"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = false; isRedToYellow = false; isPurpleToCyan = false; hue = 120; UpdateCA(false);}, "Green"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = false; isRedToYellow = false; isPurpleToCyan = false; hue = 240; UpdateCA(false);}, "Blue"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = false; isRedToYellow = false; isPurpleToCyan = false; hue = 270; UpdateCA(false);}, "Purple"));
+            buttons.push_back(emp::web::Button([this]() {isGrayscale = false; isRedToPurple = false; isRedToYellow = false; isPurpleToCyan = false; hue = 300; UpdateCA(false);}, "Pink"));
 
-        // Styles a given button
-        void StyleButton(std::string buttonName, emp::web::Button button) {
-            // sets standard styling for all buttons
-            button.SetFontSize(12).SetCSS("margin", "4px 2px").SetCSS("border-radius", "8px").SetCSS("padding", "10px 10px");
-
-            // for the specific color buttons, sets the background and border to that color
-            if (buttonName == "Red") {button.SetBackground("#ff0000").SetBorder("#ff0000").SetColor("white");}
-            else if (buttonName == "Orange") {button.SetBackground("#ff8000").SetBorder("#ff8000");}
-            else if (buttonName == "Green") {button.SetBackground("#00ff00").SetBorder("#00ff00");}
-            else if (buttonName == "Blue") {button.SetBackground("#0000ff").SetBorder("#0000ff").SetColor("white");}
-            else if (buttonName == "Purple") {button.SetBackground("#8000ff").SetBorder("#8000ff").SetColor("white");;}
-            else if (buttonName == "Pink") {button.SetBackground("#ff00ff").SetBorder("#ff00ff");}
+            // styles all buttons and adds them to the web interface
+            doc << "<div>";
+            for (emp::web::Button button : buttons) {
+                StyleButton(button);
+                doc << button;
+                doc << "<br>";
+            }
+            doc << "</div>";
         }
 
 
-        // Given a cell's coordinates, returns the average value of its neighbor cells in its toroidal Moore neighborhood
+        /**
+        * Styles a given button for the web interface.
+        * @param button The button (which must be initialized previously) to style.
+        */
+        void StyleButton(emp::web::Button button) {
+            std::string buttonName = button.GetLabel();
+            // sets standard style for all buttons
+            button.SetFontSize(14).SetCSS("margin", "3px 3px").SetCSS("padding", "8px 8px").SetCSS("border-style", "solid");
+
+            // sets button backgrounds and borders
+            if (buttonName == "Start"){button.SetCSS("margin-top", "8px").SetBackground("#b3b3b3").SetBorder("#b3b3b3").SetColor("#000000");}
+            else if (buttonName == "Step"){button.SetBackground("#b3b3b3").SetBorder("#b3b3b3").SetColor("#000000");}
+            else if (buttonName == "Grayscale"){button.SetCSS("background-image", "linear-gradient(to right, #000000, #cccccc)").SetCSS("border-image", "linear-gradient(to right, #000000, #cccccc) 1").SetColor("white");}
+            else if (buttonName == "Red to Purple"){button.SetCSS("background-image", "linear-gradient(to right in hsl longer hue, #ff0000, #8000ff)").SetCSS("border-image", "linear-gradient(to right in hsl longer hue, #ff0000, #8000ff) 1");}
+            else if (buttonName == "Red to Yellow"){button.SetCSS("background-image", "linear-gradient(to right, #ff0000, #ffff00)").SetCSS("border-image", "linear-gradient(to right, #ff0000, #ffff00) 1");}
+            else if (buttonName == "Purple to Cyan"){button.SetCSS("background-image", "linear-gradient(to right, #8000ff, #00ffd5)").SetCSS("border-image", "linear-gradient(to right, #8000ff, #00ffd5) 1").SetColor("white");}
+            else if (buttonName == "Red") {button.SetCSS("background-image", "linear-gradient(to right, #ff0000, #ffb3b3)").SetCSS("border-image", "linear-gradient(to right, #ff0000, #ffb3b3) 1");}
+            else if (buttonName == "Orange") {button.SetCSS("background-image", "linear-gradient(to right, #ff8000, #ffd9b3)").SetCSS("border-image", "linear-gradient(to right, #ff8000, #ffd9b3) 1");}
+            else if (buttonName == "Green") {button.SetCSS("background-image", "linear-gradient(to right, #00ff00, #b3ffb3)").SetCSS("border-image", "linear-gradient(to right, #00ff00, #b3ffb3) 1");}
+            else if (buttonName == "Blue") {button.SetCSS("background-image", "linear-gradient(to right, #0000ff, #b3b3ff)").SetCSS("border-image", "linear-gradient(to right, #0000ff, #b3b3ff) 1").SetColor("white");}
+            else if (buttonName == "Purple") {button.SetCSS("background-image", "linear-gradient(to right, #8000ff, #d9b3ff)").SetCSS("border-image", "linear-gradient(to right, #8000ff, #d9b3ff) 1").SetColor("white");}
+            else if (buttonName == "Pink") {button.SetCSS("background-image", "linear-gradient(to right, #ff00ff, #ffb3ff)").SetCSS("border-image", "linear-gradient(to right, #ff00ff, #ffb3ff) 1");}
+        }
+
+
+        /**
+         * Returns the average value of a given cell's neighbors in its toroidal Moore neighborhood.
+         * @param x Cell's x coordinate.
+         * @param y Cell's y coordinate.
+         * @return The average value of the cell's neighbors in its toroidal Moore neighborhood.
+         */
         double AvgNeighborValue(int x, int y) {
-            double neighborValue = 0.0;
+            double neighborValueSum = 0.0;
             // finds current cell's toroidal Moore neighborhood
             for (int a = -1; a < 2; a++) {
                 for (int b = -1; b < 2; b++) {
                     int neighborX = emp::Mod(a+x, numColBoxes);
                     int neighborY = emp::Mod(b+y, numRowBoxes);
-                    if (a != 0 or b != 0) { // excludes cells[x][y], only considers its neighbors
-                        neighborValue += cells[neighborX][neighborY];
+                    if (a != 0 or b != 0) { // excludes the given cell, only considers its neighbors
+                        neighborValueSum += cells[neighborX][neighborY];
                     }
                 }
             }
-            return neighborValue/8; // cell has 8 neighbors
+            return neighborValueSum/8; // divide by 8 because the cell has 8 neighbors
         }
 
-        // For all cells, sets cell color, draws cell, and, if the setFuture is true, sets future cell value
-        void UpdateCell(bool setFuture) {
-            canvas.Clear(); // prevents out of memory error
-            // sets cell color based on button click (grayscale by default) and cell value
-            std::string color;
-            for (int x = 0; x < numColBoxes; x++) {
-                for (int y = 0; y < numRowBoxes; y++) {
-                    if (isMulticolor) {
-                        color = emp::ColorHSV(300*(1 - cells[x][y]), 1, 1);
-                    }
-                    else if (isGrayscale) {
-                        color = emp::ColorHSV(0, 0, 1 - cells[x][y]);
-                    }
-                    else {
-                        color = emp::ColorHSV(hue, cells[x][y], 1); 
-                    }
-                    canvas.Rect(x*cellLength, y*cellLength, cellLength, cellLength, color, color);
 
-                    if (setFuture) { // computes the value of the cell for the next frame
-                        double avgNeighbors =  AvgNeighborValue(x, y);
-                        // if all neighbor cells have a value of 0, the cell should also have a value of 0
-                        if (avgNeighbors == 0.0) {
-                            futureCells[x][y] = 0.0;
-                        }
-                        // otherwise, implements update rule inspired by https://www.wolframscience.com/nks/p158--continuous-cellular-automata/
-                        else {
-                            double futureValue =  AvgNeighborValue(x, y) + .75;
-                            futureValue -= (int)futureValue;
-                            futureCells[x][y] = futureValue;
-                        }
-                    }
-                }
-            }
-            if (setFuture) {
+        /**
+         * Updates the cellular automaton.
+         * 
+         * Draws all cells, and, if updateCellValues is true, sets future value for each cell.
+         * @param updateCellValues True if cellular automaton is advancing through time (animation is running or the step button is pressed).
+         *                         False if the user chose a different color scheme (cell values remain unchanged but visual display is updated).
+         */
+        void UpdateCA(bool updateCellValues = false) {
+            canvas.Clear(); // prevents out of memory error
+            if (updateCellValues) { // advances cell values by one update
                 cells = futureCells;
             }
+            // draws every cell
+            for (int x = 0; x < numColBoxes; x++) {
+                for (int y = 0; y < numRowBoxes; y++) {
+                    DrawCell(x, y);
+                    if (updateCellValues) { // if true, computes the value of the cell for the next frame
+                        MakeFutureCell(x, y);
+                    }
+                }
+            }
         }
 
-        // Updates the cellular automaton for each frame
+
+        /**
+         * Draws a given cell on the web interface based on the cell's value and the user's most recently pressed color button.
+         * @param x Cell's x coordinate.
+         * @param y Cell's y coordinate.
+         */
+        void DrawCell(int x, int y) {
+            std::string color;
+            // sets cell color based on button flags/hues and cell value
+            if (isGrayscale) {color = emp::ColorHSV(0, 0, 1 - cells[x][y]);}
+            else if (isRedToPurple) {color = emp::ColorHSV(270*(1 - cells[x][y]), 1, 1);}
+            else if (isRedToYellow) {color = emp::ColorHSV(60*(1 - cells[x][y]), 1, 1);}
+            else if (isPurpleToCyan) {color = emp::ColorHSV((100*cells[x][y]) + 170, 1, 1);}
+            else {color = emp::ColorHSV(hue, cells[x][y], 1);}
+
+            // draws cell
+            canvas.Rect(x*cellLength, y*cellLength, cellLength, cellLength, color, color);
+        }
+
+
+        /**
+         * Computes a given cell's future value based on the value of cells in its Moore neighborhood.
+         * @param x Cell's x coordinate.
+         * @param y Cell's y coordinate.
+         */
+        void MakeFutureCell(int x, int y) {
+            double avgNeighborVal =  AvgNeighborValue(x, y);
+            // if all neighbor cells have a value of 0, the cell should also have a value of 0
+            if (avgNeighborVal == 0.0) {
+                futureCells[x][y] = 0.0;
+            }
+            // otherwise, implements update rule inspired by https://www.wolframscience.com/nks/p158--continuous-cellular-automata/
+            else {
+                double futureCellVal =  avgNeighborVal + .75;
+                futureCellVal -= (int)futureCellVal;
+                futureCells[x][y] = futureCellVal;
+            }
+        }
+
+        
+        /**
+         * Updates the cellular automaton for each frame while animation is running or when step button is pressed.
+         */
         void DoFrame() override {
-            UpdateCell(true);
+            UpdateCA(true);
         }
 };
 

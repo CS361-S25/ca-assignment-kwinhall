@@ -1,8 +1,6 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/StQAS8iq)
-
 By Kendra Winhall 
 
-This program implements a continuous cellular automaton on a toroidal grid, with multiple color options for users to choose from. Color options include grayscale, multicolor, red, orange, green, blue, purple, and pink. Users can switch between color options by pressing the relevant button before the animation begins, while the animation is running, or when the animation is stopped.
+This program implements a continuous cellular automaton on a toroidal grid, with multiple color options for users to choose from. Users can switch between color options by pressing the relevant button before the animation begins, while the animation is running, or when the animation is stopped.
 
 The pattern begins with a single cell in the middle of the grid, but turns into an elaborate pattern with both reflectional symmetry and rotational symmetry.
 
